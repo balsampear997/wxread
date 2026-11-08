@@ -1,9 +1,13 @@
 name: wxread
 
+concurrency:
+  group: ${{ github.workflow }} # 使用工作流名称作为并发组的key
+  cancel-in-progress: true    # 取消任何正在进行的相同并发组的工作流
+
 on:
   schedule:
-    # 凌晨任务：北京时间每天 01:00（UTC 前一天 17:00）
-    - cron: '0 17 * * *'
+    # 凌晨任务：北京时间每天 01:07（UTC 前一天 17:07），避开 GitHub Actions 整点高峰
+    - cron: '7 17 * * *'
     # 早间任务：北京时间每天 05:00（UTC 前一天 21:00）
     #- cron: '0 21 * * *'
     # 午间任务：北京时间每天 11:40（UTC 03:40）
@@ -25,10 +29,10 @@ jobs:
         echo "nameserver 8.8.4.4" | sudo tee -a /etc/resolv.conf
 
     - name: Checkout repository
-      uses: actions/checkout@v2
+      uses: actions/checkout@v7
 
     - name: Set up Python
-      uses: actions/setup-python@v2
+      uses: actions/setup-python@v7
       with:
         python-version: '3.10'
 
@@ -45,7 +49,18 @@ jobs:
         WXPUSHER_SPT: ${{ secrets.WXPUSHER_SPT }}
         TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
         TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        SERVERCHAN_SPT:  ${{ secrets.SERVERCHAN_SPT }}
         READ_NUM: ${{ vars.READ_NUM }}  # 使用 Repository Variables
 
       run: |
         python main.py
+
+  keepalive-job:
+    name: Keepalive Workflow
+    if: ${{ always() }}
+    needs: deploy
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+    steps:
+      - uses: liskin/gh-workflow-keepalive@v1.2.1
